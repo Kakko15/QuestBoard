@@ -4,12 +4,13 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { Mail, Lock, Loader2, Sparkles, ArrowLeft } from 'lucide-react'
+import { Mail, Lock, Loader2, Sparkles, ArrowLeft, Shield } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { TwoFactorVerify } from './two-factor-verify'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/hooks/use-toast'
 
@@ -39,15 +40,87 @@ export function LoginForm() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [oauthLoading, setOauthLoading] = useState<string | null>(null)
+  const [show2FA, setShow2FA] = useState(false)
+  const [twoFAMethod, setTwoFAMethod] = useState<'totp' | 'email'>('totp')
+  const [pendingUserId, setPendingUserId] = useState<string | null>(null)
   const router = useRouter()
   const supabase = createClient()
   const { toast } = useToast()
+
+  const check2FAStatus = async (userEmail: string): Promise<{ has2FA: boolean; method: string | null; userId: string | null }> => {
+    try {
+      const response = await fetch('/api/auth/2fa/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: userEmail }),
+      })
+      const data = await response.json()
+      return { has2FA: data.has2FA, method: data.method, userId: data.userId }
+    } catch {
+      return { has2FA: false, method: null, userId: null }
+    }
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
     try {
+      // First check if user has 2FA enabled
+      const { has2FA, method, userId } = await check2FAStatus(email)
+
+      // Verify password first
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (error) {
+        toast({
+          title: 'Login Failed',
+          description: error.message,
+          variant: 'destructive',
+        })
+        setLoading(false)
+        return
+      }
+
+      if (has2FA && userId) {
+        // Sign out immediately - we need 2FA verification first
+        await supabase.auth.signOut()
+        
+        // Store info and show 2FA dialog
+        setPendingUserId(userId)
+        setTwoFAMethod((method as 'totp' | 'email') || 'totp')
+        setShow2FA(true)
+        setLoading(false)
+        return
+      }
+
+      // No 2FA - login successful
+      toast({
+        title: 'Welcome back, Adventurer!',
+        description: 'Your journey continues...',
+        variant: 'quest',
+      })
+
+      router.push('/')
+      router.refresh()
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handle2FAVerified = async () => {
+    setLoading(true)
+    try {
+      // Re-authenticate after 2FA verification
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -63,11 +136,13 @@ export function LoginForm() {
       }
 
       toast({
-        title: 'Welcome back, Adventurer!',
-        description: 'Your journey continues...',
+        title: 'Welcome back, Adventurer! 🔐',
+        description: 'Two-factor authentication verified',
         variant: 'quest',
       })
 
+      setShow2FA(false)
+      setPendingUserId(null)
       router.push('/')
       router.refresh()
     } catch (err) {
@@ -111,138 +186,156 @@ export function LoginForm() {
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="w-full max-w-md"
-    >
-      <Link 
-        href="/" 
-        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-white mb-4 transition-colors"
+    <>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="w-full max-w-md"
       >
-        <ArrowLeft className="h-4 w-4" />
-        Back to Home
-      </Link>
-      <Card className="w-full border-2 border-amber-500/20">
-        <CardHeader className="text-center">
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2, type: 'spring' }}
-            className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-orange-600 text-3xl shadow-lg"
-          >
-            ⚔️
-          </motion.div>
-          <CardTitle className="font-display text-2xl">
-            Welcome to QuestBoard
-          </CardTitle>
-          <CardDescription>
-            Sign in to continue your adventure
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              variant="outline"
-              onClick={() => handleOAuthLogin('google')}
-              disabled={oauthLoading !== null}
-              className="w-full"
+        <Link 
+          href="/" 
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-white mb-4 transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Home
+        </Link>
+        <Card className="w-full border-2 border-amber-500/20">
+          <CardHeader className="text-center">
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.2, type: 'spring' }}
+              className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-orange-600 text-3xl shadow-lg"
             >
-              {oauthLoading === 'google' ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <GoogleIcon className="mr-2 h-4 w-4" />
-              )}
-              Google
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => handleOAuthLogin('discord')}
-              disabled={oauthLoading !== null}
-              className="w-full"
-            >
-              {oauthLoading === 'discord' ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <DiscordIcon className="mr-2 h-4 w-4" />
-              )}
-              Discord
-            </Button>
-          </div>
-
-          <div className="relative my-6">
-            <Separator />
-            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">
-              or continue with email
-            </span>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="your.email@isu.edu.ph"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10"
-                  required
-                />
-              </div>
-            </div>
-
-            <Button
-              type="submit"
-              variant="quest"
-              className="w-full"
-              disabled={loading}
-            >
-              {loading ? (
-                <>
+              ⚔️
+            </motion.div>
+            <CardTitle className="font-display text-2xl">
+              Welcome to QuestBoard
+            </CardTitle>
+            <CardDescription>
+              Sign in to continue your adventure
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                variant="outline"
+                onClick={() => handleOAuthLogin('google')}
+                disabled={oauthLoading !== null || loading}
+                className="w-full"
+              >
+                {oauthLoading === 'google' ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Entering the Realm...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Begin Adventure
-                </>
-              )}
-            </Button>
-          </form>
+                ) : (
+                  <GoogleIcon className="mr-2 h-4 w-4" />
+                )}
+                Google
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handleOAuthLogin('discord')}
+                disabled={oauthLoading !== null || loading}
+                className="w-full"
+              >
+                {oauthLoading === 'discord' ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <DiscordIcon className="mr-2 h-4 w-4" />
+                )}
+                Discord
+              </Button>
+            </div>
 
-          <div className="mt-6 text-center text-sm text-muted-foreground">
-            Don&apos;t have an account?{' '}
-            <Link
-              href="/auth/register"
-              className="font-medium text-amber-500 hover:underline"
-            >
-              Register here
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
-    </motion.div>
+            <div className="relative my-6">
+              <Separator />
+              <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">
+                or continue with email
+              </span>
+            </div>
+
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="your.email@isu.edu.ph"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pl-10"
+                    required
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-10"
+                    required
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                variant="quest"
+                className="w-full"
+                disabled={loading || oauthLoading !== null}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Verifying...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    Begin Adventure
+                  </>
+                )}
+              </Button>
+            </form>
+
+            <div className="mt-4 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+              <Shield className="h-3 w-3" />
+              <span>Protected by Two-Factor Authentication</span>
+            </div>
+
+            <div className="mt-6 text-center text-sm text-muted-foreground">
+              Don&apos;t have an account?{' '}
+              <Link
+                href="/auth/register"
+                className="font-medium text-amber-500 hover:underline"
+              >
+                Register here
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* 2FA Verification Modal */}
+      <TwoFactorVerify
+        open={show2FA}
+        onOpenChange={setShow2FA}
+        email={email}
+        userId={pendingUserId || undefined}
+        method={twoFAMethod}
+        onVerified={handle2FAVerified}
+      />
+    </>
   )
 }
-
