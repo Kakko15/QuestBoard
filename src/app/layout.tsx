@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Inter, Space_Grotesk, VT323 } from 'next/font/google'
 import { Toaster } from '@/components/ui/toaster'
 import { CustomCursor } from '@/components/ui/custom-cursor'
+import { MobileNav } from '@/components/layout/mobile-nav'
 import './globals.css'
 
 const inter = Inter({
@@ -43,6 +44,7 @@ export default function RootLayout({
       <body className={`${inter.variable} ${spaceGrotesk.variable} ${vt323.variable} font-body antialiased selection:bg-neon-green selection:text-black overflow-x-hidden cursor-none`}>
         <CustomCursor />
         {children}
+        <MobileNav />
         <Toaster />
       </body>
     </html>

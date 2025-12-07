@@ -62,7 +62,7 @@ export default function WelcomePage() {
 
   const handleContinue = () => {
     localStorage.setItem('questboard_welcomed', 'true')
-    router.push('/')
+    router.replace('/') // Use replace to not pollute browser history
   }
 
   const slide = slides[currentSlide]

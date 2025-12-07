@@ -2,9 +2,10 @@
 
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { motion } from 'framer-motion'
 import ReCAPTCHA from 'react-google-recaptcha'
-import { Mail, Lock, User, Hash, Loader2, Sparkles } from 'lucide-react'
+import { Mail, Lock, User, Hash, Loader2, Sparkles, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -206,8 +207,16 @@ export function RegisterForm() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
+      className="w-full max-w-md"
     >
-      <Card className="w-full max-w-md border-2 border-amber-500/20">
+      <Link 
+        href="/" 
+        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-white mb-4 transition-colors"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to Home
+      </Link>
+      <Card className="w-full border-2 border-amber-500/20">
         <CardHeader className="text-center">
           <motion.div
             initial={{ scale: 0 }}
@@ -423,12 +432,12 @@ export function RegisterForm() {
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
             Already have an account?{' '}
-            <a
+            <Link
               href="/auth/login"
               className="font-medium text-amber-500 hover:underline"
             >
               Sign in
-            </a>
+            </Link>
           </div>
         </CardContent>
       </Card>

@@ -73,14 +73,24 @@ export default function HomePage() {
 
   useEffect(() => {
     const hasVisited = localStorage.getItem('questboard_welcomed')
+    const hasSeenLoader = sessionStorage.getItem('questboard_loaded')
+    
     if (!hasVisited) {
-      router.push('/welcome')
+      router.replace('/welcome') // Use replace to not add to history
       return
     }
 
-    const loaderTimer = setTimeout(() => {
+    // Only show loader on first visit in this session
+    if (hasSeenLoader) {
       setShowLoader(false)
-    }, 2000)
+    } else {
+      const loaderTimer = setTimeout(() => {
+        setShowLoader(false)
+        sessionStorage.setItem('questboard_loaded', 'true')
+      }, 1500) // Reduced to 1.5s
+      
+      return () => clearTimeout(loaderTimer)
+    }
 
     const fetchUser = async () => {
       const { data: { session } } = await supabase.auth.getSession()
@@ -116,8 +126,6 @@ export default function HomePage() {
     }
 
     fetchUser()
-
-    return () => clearTimeout(loaderTimer)
   }, [supabase, router])
 
   if (showLoader) {

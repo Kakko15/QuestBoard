@@ -59,6 +59,16 @@
       4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px)
     );
   }
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+/* Add bottom padding for mobile nav on small screens */
+@media (max-width: 767px) {
+  main, .main-content {
+    padding-bottom: 80px;
+  }
 }
 
 ::-webkit-scrollbar {
