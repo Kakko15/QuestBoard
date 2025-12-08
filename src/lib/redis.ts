@@ -21,8 +21,10 @@ export const redis = createRedisClient()
 
 export const CACHE_KEYS = {
   GUILD_LEADERBOARD: 'guild:leaderboard',
+  PLAYER_LEADERBOARD: 'player:leaderboard',
   USER_RANK: (userId: string) => `user:${userId}:rank`,
   GUILD_STATS: (college: string) => `guild:${college}:stats`,
+  NOTIFICATIONS: (userId: string) => `user:${userId}:notifications`,
 }
 
 export const CACHE_TTL = {

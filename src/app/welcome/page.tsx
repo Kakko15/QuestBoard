@@ -21,32 +21,33 @@ const slides = [
           src="/logo-symbol-only.png" 
           alt="QuestBoard Logo" 
           fill
+          sizes="80px"
           className="object-cover p-2"
         />
       </div>
     ),
-    color: 'from-amber-500 to-orange-600',
+    color: 'from-neon-purple to-neon-green',
   },
   {
     title: 'Complete Quests',
     subtitle: 'Earn XP & Gold',
     description: 'Participate in campus activities, seminars, and events to earn rewards and level up your character.',
     icon: '📜',
-    color: 'from-green-500 to-emerald-600',
+    color: 'from-neon-green to-emerald-600',
   },
   {
     title: 'Join Your Guild',
     subtitle: '11 Departments, 11 Guilds',
     description: 'Represent your college and compete with other departments for the top spot on the leaderboard.',
     icon: '🛡️',
-    color: 'from-purple-500 to-indigo-600',
+    color: 'from-neon-purple to-indigo-600',
   },
   {
     title: 'Rise to Glory',
     subtitle: 'Become a Legend',
     description: 'Unlock achievements, climb the ranks, and become the ultimate champion of ISU-Echague!',
     icon: '👑',
-    color: 'from-amber-400 to-yellow-500',
+    color: 'from-neon-orange to-yellow-500',
   },
 ]
 
@@ -115,7 +116,7 @@ export default function WelcomePage() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.3 }}
-                  className="mb-2 text-sm font-medium uppercase tracking-wider text-amber-500"
+                  className="mb-2 text-sm font-medium uppercase tracking-wider text-neon-green"
                 >
                   {slide.subtitle}
                 </motion.p>
@@ -147,8 +148,8 @@ export default function WelcomePage() {
                   onClick={() => setCurrentSlide(index)}
                   className={`h-2 rounded-full transition-all ${
                     index === currentSlide
-                      ? 'w-8 bg-amber-500'
-                      : 'w-2 bg-slate-600 hover:bg-slate-500'
+                      ? 'w-8 bg-neon-green'
+                      : 'w-2 bg-muted-foreground/30 hover:bg-muted-foreground/50'
                   }`}
                 />
               ))}
@@ -210,7 +211,7 @@ export default function WelcomePage() {
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: index * 0.05 }}
-                    className="rounded-lg border border-border/50 bg-card/50 p-4 backdrop-blur-sm transition-all hover:border-amber-500/30 hover:bg-card"
+                    className="rounded-lg border border-border/50 bg-card/50 p-4 backdrop-blur-sm transition-all hover:border-neon-purple/30 hover:bg-card"
                   >
                     <GuildBadge college={key} size="sm" />
                   </motion.div>
@@ -225,22 +226,22 @@ export default function WelcomePage() {
               >
                 <div className="mb-8 flex justify-center gap-8">
                   <div className="text-center">
-                    <div className="flex h-12 w-12 mx-auto items-center justify-center rounded-full bg-amber-500/20">
-                      <Target className="h-6 w-6 text-amber-500" />
+                    <div className="flex h-12 w-12 mx-auto items-center justify-center rounded-full bg-neon-orange/20">
+                      <Target className="h-6 w-6 text-neon-orange" />
                     </div>
                     <p className="mt-2 text-2xl font-bold">50+</p>
                     <p className="text-xs text-muted-foreground">Active Quests</p>
                   </div>
                   <div className="text-center">
-                    <div className="flex h-12 w-12 mx-auto items-center justify-center rounded-full bg-purple-500/20">
-                      <Users className="h-6 w-6 text-purple-500" />
+                    <div className="flex h-12 w-12 mx-auto items-center justify-center rounded-full bg-neon-purple/20">
+                      <Users className="h-6 w-6 text-neon-purple" />
                     </div>
                     <p className="mt-2 text-2xl font-bold">3,000+</p>
                     <p className="text-xs text-muted-foreground">Students</p>
                   </div>
                   <div className="text-center">
-                    <div className="flex h-12 w-12 mx-auto items-center justify-center rounded-full bg-green-500/20">
-                      <Trophy className="h-6 w-6 text-green-500" />
+                    <div className="flex h-12 w-12 mx-auto items-center justify-center rounded-full bg-neon-green/20">
+                      <Trophy className="h-6 w-6 text-neon-green" />
                     </div>
                     <p className="mt-2 text-2xl font-bold">11</p>
                     <p className="text-xs text-muted-foreground">Guilds</p>

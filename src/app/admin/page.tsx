@@ -13,25 +13,27 @@ import {
   BarChart3,
   PlusCircle,
   Settings,
+  Loader2,
+  RefreshCw,
+  CheckCircle2,
+  Clock,
+  XCircle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Badge } from '@/components/ui/badge'
 import { Navbar } from '@/components/layout/navbar'
 import { Footer } from '@/components/layout/footer'
 import { StatsOverview } from '@/components/game/stats-overview'
 import { LeaderboardCard } from '@/components/game/leaderboard-card'
+import { QuestForm } from '@/components/admin/quest-form'
+import { useUser } from '@/hooks/use-user'
+import { useLeaderboard } from '@/hooks/use-leaderboard'
 import { createClient } from '@/lib/supabase/client'
-import { formatNumber } from '@/lib/utils'
-import type { UserProfile, GuildLeaderboard } from '@/types'
-
-const mockLeaderboard: GuildLeaderboard[] = [
-  { college: 'CCSICT', guildName: 'The Technomancers', totalXp: 125000, totalMembers: 450, averageLevel: 12.5, rank: 1 },
-  { college: 'COE', guildName: 'The Artificers', totalXp: 118000, totalMembers: 380, averageLevel: 11.8, rank: 2 },
-  { college: 'CED', guildName: 'The Sages', totalXp: 112000, totalMembers: 520, averageLevel: 10.2, rank: 3 },
-  { college: 'CBAPA', guildName: 'The Tycoons', totalXp: 98000, totalMembers: 410, averageLevel: 9.5, rank: 4 },
-  { college: 'CON', guildName: 'The Vitalists', totalXp: 95000, totalMembers: 320, averageLevel: 11.2, rank: 5 },
-]
+import { formatNumber, formatDate } from '@/lib/utils'
+import { DIFFICULTY_CONFIG } from '@/lib/constants'
+import type { Quest } from '@/types'
 
 interface AdminStats {
   totalUsers: number
@@ -40,80 +42,141 @@ interface AdminStats {
   atRiskStudents: number
 }
 
+interface PendingVerification {
+  id: string
+  userName: string
+  questTitle: string
+  submittedAt: string
+  proofUrl: string | null
+}
+
 export default function AdminPage() {
-  const [user, setUser] = useState<UserProfile | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [stats] = useState<AdminStats>({
-    totalUsers: 3420,
-    activeQuests: 24,
-    questsCompleted: 15680,
-    atRiskStudents: 45,
+  const { user, loading: userLoading, signOut } = useUser()
+  const { guildLeaderboard, loading: leaderboardLoading, refresh: refreshLeaderboard } = useLeaderboard()
+  const [stats, setStats] = useState<AdminStats>({
+    totalUsers: 0,
+    activeQuests: 0,
+    questsCompleted: 0,
+    atRiskStudents: 0,
   })
+  const [quests, setQuests] = useState<Quest[]>([])
+  const [pendingVerifications, setPendingVerifications] = useState<PendingVerification[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showQuestForm, setShowQuestForm] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
   useEffect(() => {
-    const fetchUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
+    const fetchAdminData = async () => {
+      if (!user) return
 
-      if (!session?.user) {
-        router.push('/auth/login')
-        return
-      }
+      try {
+        // Fetch stats
+        const { count: usersCount } = await supabase
+          .from('user_profiles')
+          .select('id', { count: 'exact', head: true })
 
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', session.user.id)
-        .single()
+        const { count: activeQuestsCount } = await supabase
+          .from('quests')
+          .select('id', { count: 'exact', head: true })
+          .eq('is_active', true)
+          .gte('expires_at', new Date().toISOString())
 
-      if (profile) {
-        if (profile.role !== 'quest_giver' && profile.role !== 'game_master') {
-          router.push('/')
-          return
+        const { count: completedCount } = await supabase
+          .from('user_quest_logs')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'completed')
+
+        // Fetch quests
+        const { data: questsData } = await supabase
+          .from('quests')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(20)
+
+        // Fetch pending verifications (manual quests awaiting approval)
+        const { data: pendingData } = await supabase
+          .from('user_quest_logs')
+          .select(`
+            id,
+            started_at,
+            proof_url,
+            user:user_profiles(first_name, last_name),
+            quest:quests(title, requirements)
+          `)
+          .eq('status', 'in_progress')
+          .not('proof_url', 'is', null)
+          .limit(10)
+
+        setStats({
+          totalUsers: usersCount || 0,
+          activeQuests: activeQuestsCount || 0,
+          questsCompleted: completedCount || 0,
+          atRiskStudents: 0, // Would come from data mining
+        })
+
+        if (questsData) {
+          setQuests(questsData.map((q: any) => ({
+            id: q.id,
+            title: q.title,
+            description: q.description,
+            shortDescription: q.short_description,
+            difficulty: q.difficulty,
+            xpReward: q.xp_reward,
+            goldReward: q.gold_reward,
+            requirements: q.requirements,
+            startsAt: q.starts_at,
+            expiresAt: q.expires_at,
+            maxParticipants: q.max_participants,
+            currentParticipants: q.current_participants,
+            createdById: q.created_by_id,
+            targetColleges: q.target_colleges,
+            isActive: q.is_active,
+            createdAt: q.created_at,
+            updatedAt: q.updated_at,
+          })))
         }
 
-        setUser({
-          id: profile.id,
-          email: profile.email,
-          studentId: profile.student_id,
-          firstName: profile.first_name,
-          lastName: profile.last_name,
-          college: profile.college,
-          role: profile.role,
-          xp: profile.xp,
-          gold: profile.gold,
-          level: profile.level,
-          avatarUrl: profile.avatar_url,
-          activityStreak: profile.activity_streak,
-          lastActiveAt: profile.last_active_at,
-          createdAt: profile.created_at,
-          updatedAt: profile.updated_at,
-        })
+        if (pendingData) {
+          setPendingVerifications(pendingData.map((p: any) => ({
+            id: p.id,
+            userName: `${p.user?.first_name || ''} ${p.user?.last_name || ''}`.trim() || 'Unknown',
+            questTitle: p.quest?.title || 'Unknown Quest',
+            submittedAt: p.started_at,
+            proofUrl: p.proof_url,
+          })))
+        }
+      } catch (error) {
+        console.error('Error fetching admin data:', error)
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     }
 
-    fetchUser()
-  }, [supabase, router])
+    if (user && (user.role === 'quest_giver' || user.role === 'game_master')) {
+      fetchAdminData()
+    }
+  }, [user, supabase])
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    router.push('/')
-  }
+  // Redirect if not authorized
+  useEffect(() => {
+    if (!userLoading && user && user.role === 'player') {
+      router.push('/')
+    }
+  }, [user, userLoading, router])
 
-  if (loading) {
+  if (userLoading || loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="animate-pulse text-center">
-          <Shield className="mx-auto h-12 w-12 text-purple-500" />
-          <p className="mt-4 text-muted-foreground">Loading admin panel...</p>
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="mx-auto h-12 w-12 animate-spin text-neon-purple" />
+          <p className="mt-4 text-gray-400">Loading admin panel...</p>
         </div>
       </div>
     )
   }
 
-  if (!user) {
+  if (!user || (user.role !== 'quest_giver' && user.role !== 'game_master')) {
     return null
   }
 
@@ -123,36 +186,51 @@ export default function AdminPage() {
       value: stats.totalUsers,
       icon: <Users className="h-5 w-5" />,
       color: '#3b82f6',
-      trend: 12,
     },
     {
       label: 'Active Quests',
       value: stats.activeQuests,
       icon: <Scroll className="h-5 w-5" />,
       color: '#f59e0b',
-      trend: 5,
     },
     {
       label: 'Quests Completed',
       value: stats.questsCompleted,
       icon: <Trophy className="h-5 w-5" />,
       color: '#22c55e',
-      trend: 24,
     },
     {
-      label: 'At-Risk Students',
-      value: stats.atRiskStudents,
-      icon: <AlertTriangle className="h-5 w-5" />,
-      color: '#ef4444',
-      trend: -8,
+      label: 'Pending Reviews',
+      value: pendingVerifications.length,
+      icon: <Clock className="h-5 w-5" />,
+      color: '#a855f7',
     },
   ]
 
-  return (
-    <div className="min-h-screen">
-      <Navbar user={user} onSignOut={handleSignOut} />
+  const handleApproveQuest = async (logId: string) => {
+    // Implement quest approval
+    try {
+      // This would call an API to approve the quest
+      setPendingVerifications((prev) => prev.filter((p) => p.id !== logId))
+    } catch (error) {
+      console.error('Error approving quest:', error)
+    }
+  }
 
-      <main className="container mx-auto px-4 py-8">
+  const handleRejectQuest = async (logId: string) => {
+    // Implement quest rejection
+    try {
+      setPendingVerifications((prev) => prev.filter((p) => p.id !== logId))
+    } catch (error) {
+      console.error('Error rejecting quest:', error)
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-black text-white">
+      <Navbar user={user} onSignOut={signOut} />
+
+      <main className="container mx-auto px-4 pt-28 pb-20">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -167,13 +245,16 @@ export default function AdminPage() {
                 <h1 className="font-display text-3xl font-bold">
                   {user.role === 'game_master' ? 'Game Master' : 'Quest Giver'} Panel
                 </h1>
-                <p className="text-muted-foreground">
-                  Manage quests, view analytics, and monitor student engagement
+                <p className="text-gray-400">
+                  Manage quests, view analytics, and monitor engagement
                 </p>
               </div>
             </div>
-            <Button variant="quest" className="gap-2">
-              <PlusCircle className="h-4 w-4" />
+            <Button
+              onClick={() => setShowQuestForm(true)}
+              className="bg-neon-green text-black hover:bg-neon-green/80 font-bold"
+            >
+              <PlusCircle className="mr-2 h-4 w-4" />
               Create Quest
             </Button>
           </div>
@@ -182,207 +263,289 @@ export default function AdminPage() {
         <StatsOverview stats={adminStats} className="mb-8" />
 
         <Tabs defaultValue="overview">
-          <TabsList className="mb-6">
-            <TabsTrigger value="overview" className="gap-2">
+          <TabsList className="mb-6 bg-white/5 border border-white/10">
+            <TabsTrigger value="overview" className="gap-2 data-[state=active]:bg-neon-purple data-[state=active]:text-white">
               <BarChart3 className="h-4 w-4" />
               Overview
             </TabsTrigger>
-            <TabsTrigger value="quests" className="gap-2">
+            <TabsTrigger value="quests" className="gap-2 data-[state=active]:bg-neon-orange data-[state=active]:text-black">
               <Scroll className="h-4 w-4" />
-              Quests
+              Quests ({quests.length})
             </TabsTrigger>
-            <TabsTrigger value="analytics" className="gap-2">
+            <TabsTrigger value="pending" className="gap-2 data-[state=active]:bg-neon-green data-[state=active]:text-black">
+              <Clock className="h-4 w-4" />
+              Pending ({pendingVerifications.length})
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="gap-2 data-[state=active]:bg-neon-blue data-[state=active]:text-white">
               <TrendingUp className="h-4 w-4" />
               Analytics
             </TabsTrigger>
-            {user.role === 'game_master' && (
-              <TabsTrigger value="settings" className="gap-2">
-                <Settings className="h-4 w-4" />
-                Settings
-              </TabsTrigger>
-            )}
           </TabsList>
 
           <TabsContent value="overview">
             <div className="grid gap-6 lg:grid-cols-2">
-              <LeaderboardCard leaderboard={mockLeaderboard} />
+              <LeaderboardCard
+                leaderboard={guildLeaderboard}
+                userGuild={user.college}
+                className="bg-black/40 border-white/10"
+              />
 
-              <Card>
+              <Card className="bg-black/40 border-white/10">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <AlertTriangle className="h-5 w-5 text-amber-500" />
-                    At-Risk Students
+                  <CardTitle className="flex items-center gap-2 text-white">
+                    <Clock className="h-5 w-5 text-neon-orange" />
+                    Recent Activity
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="mb-4 text-sm text-muted-foreground">
-                    Students identified by the predictive model as having high
-                    disengagement risk based on activity patterns.
-                  </p>
-                  <div className="space-y-3">
-                    {[
-                      { name: 'Student A', risk: 85, college: 'CCSICT', lastActive: '14 days ago' },
-                      { name: 'Student B', risk: 78, college: 'COE', lastActive: '12 days ago' },
-                      { name: 'Student C', risk: 72, college: 'CED', lastActive: '10 days ago' },
-                    ].map((student, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between rounded-lg border p-3"
+                  {quests.slice(0, 5).map((quest, index) => (
+                    <motion.div
+                      key={quest.id}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="flex items-center justify-between py-3 border-b border-white/5 last:border-0"
+                    >
+                      <div>
+                        <p className="font-medium text-white">{quest.title}</p>
+                        <p className="text-xs text-gray-400">
+                          Created {formatDate(quest.createdAt)}
+                        </p>
+                      </div>
+                      <Badge
+                        style={{
+                          backgroundColor: `${DIFFICULTY_CONFIG[quest.difficulty].color}20`,
+                          color: DIFFICULTY_CONFIG[quest.difficulty].color,
+                        }}
                       >
-                        <div>
-                          <div className="font-medium">{student.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {student.college} • {student.lastActive}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-bold text-red-500">{student.risk}%</div>
-                          <div className="text-xs text-muted-foreground">Risk Score</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="lg:col-span-2">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-green-500" />
-                    Engagement Trends
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <div className="rounded-lg border p-4 text-center">
-                      <div className="text-3xl font-bold text-green-500">89%</div>
-                      <div className="text-sm text-muted-foreground">
-                        Quest Completion Rate
-                      </div>
-                    </div>
-                    <div className="rounded-lg border p-4 text-center">
-                      <div className="text-3xl font-bold text-blue-500">4.2</div>
-                      <div className="text-sm text-muted-foreground">
-                        Avg. Quests/Week/Student
-                      </div>
-                    </div>
-                    <div className="rounded-lg border p-4 text-center">
-                      <div className="text-3xl font-bold text-purple-500">72%</div>
-                      <div className="text-sm text-muted-foreground">
-                        Active Users (30d)
-                      </div>
-                    </div>
-                    <div className="rounded-lg border p-4 text-center">
-                      <div className="text-3xl font-bold text-amber-500">6.8</div>
-                      <div className="text-sm text-muted-foreground">
-                        Avg. Activity Streak
-                      </div>
-                    </div>
-                  </div>
+                        {DIFFICULTY_CONFIG[quest.difficulty].label}
+                      </Badge>
+                    </motion.div>
+                  ))}
                 </CardContent>
               </Card>
             </div>
           </TabsContent>
 
           <TabsContent value="quests">
-            <Card>
+            <Card className="bg-black/40 border-white/10">
               <CardHeader>
-                <CardTitle>Quest Management</CardTitle>
+                <CardTitle className="flex items-center justify-between text-white">
+                  <span className="flex items-center gap-2">
+                    <Scroll className="h-5 w-5 text-neon-orange" />
+                    Quest Management
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-white/10"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">
-                  Quest management features will be implemented here.
-                </p>
+                {quests.length > 0 ? (
+                  <div className="space-y-3">
+                    {quests.map((quest, index) => {
+                      const isExpired = new Date(quest.expiresAt) < new Date()
+                      return (
+                        <motion.div
+                          key={quest.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.03 }}
+                          className="flex items-center gap-4 p-4 rounded-lg bg-white/5 border border-white/10"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-white truncate">
+                                {quest.title}
+                              </span>
+                              <Badge
+                                className="text-xs"
+                                style={{
+                                  backgroundColor: `${DIFFICULTY_CONFIG[quest.difficulty].color}20`,
+                                  color: DIFFICULTY_CONFIG[quest.difficulty].color,
+                                }}
+                              >
+                                {DIFFICULTY_CONFIG[quest.difficulty].label}
+                              </Badge>
+                              {isExpired && (
+                                <Badge variant="outline" className="text-xs border-red-500/30 text-red-400">
+                                  Expired
+                                </Badge>
+                              )}
+                              {!quest.isActive && (
+                                <Badge variant="outline" className="text-xs border-gray-500/30 text-gray-400">
+                                  Inactive
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-400 truncate">
+                              {quest.shortDescription}
+                            </p>
+                            <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
+                              <span>+{quest.xpReward} XP</span>
+                              <span>+{quest.goldReward} Gold</span>
+                              <span>{quest.currentParticipants} participants</span>
+                            </div>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-white/10"
+                          >
+                            Edit
+                          </Button>
+                        </motion.div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <div className="py-12 text-center">
+                    <Scroll className="mx-auto h-12 w-12 text-gray-600" />
+                    <h3 className="mt-4 text-lg font-semibold">No quests yet</h3>
+                    <p className="text-gray-500">Create your first quest to get started</p>
+                    <Button
+                      onClick={() => setShowQuestForm(true)}
+                      className="mt-4 bg-neon-green text-black"
+                    >
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      Create Quest
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="pending">
+            <Card className="bg-black/40 border-white/10">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-white">
+                  <Clock className="h-5 w-5 text-neon-green" />
+                  Pending Verifications
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {pendingVerifications.length > 0 ? (
+                  <div className="space-y-3">
+                    {pendingVerifications.map((item, index) => (
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        className="flex items-center gap-4 p-4 rounded-lg bg-white/5 border border-white/10"
+                      >
+                        <div className="flex-1">
+                          <p className="font-semibold text-white">{item.userName}</p>
+                          <p className="text-sm text-gray-400">{item.questTitle}</p>
+                          <p className="text-xs text-gray-500">
+                            Submitted {formatDate(item.submittedAt)}
+                          </p>
+                        </div>
+                        {item.proofUrl && (
+                          <Button variant="outline" size="sm" className="border-white/10">
+                            View Proof
+                          </Button>
+                        )}
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => handleApproveQuest(item.id)}
+                            className="bg-neon-green text-black hover:bg-neon-green/80"
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleRejectQuest(item.id)}
+                          >
+                            <XCircle className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-12 text-center">
+                    <CheckCircle2 className="mx-auto h-12 w-12 text-gray-600" />
+                    <h3 className="mt-4 text-lg font-semibold">All caught up!</h3>
+                    <p className="text-gray-500">No pending verifications</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
 
           <TabsContent value="analytics">
-            <Card>
+            <Card className="bg-black/40 border-white/10">
               <CardHeader>
-                <CardTitle>Data Mining Analytics</CardTitle>
+                <CardTitle className="flex items-center gap-2 text-white">
+                  <TrendingUp className="h-5 w-5 text-neon-blue" />
+                  Data Mining Analytics
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-6 md:grid-cols-2">
-                  <div className="rounded-lg border p-6">
-                    <h3 className="mb-4 font-semibold">Student Clusters (K-Means)</h3>
+                  <div className="rounded-lg border border-white/10 p-6 bg-white/5">
+                    <h3 className="mb-4 font-semibold text-white">Student Clusters (K-Means)</h3>
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span>The Grinders</span>
-                        <span className="font-bold text-green-500">1,245</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>The Socializers</span>
-                        <span className="font-bold text-blue-500">892</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>The Achievers</span>
-                        <span className="font-bold text-purple-500">678</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>The Explorers</span>
-                        <span className="font-bold text-amber-500">456</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>At-Risk</span>
-                        <span className="font-bold text-red-500">149</span>
-                      </div>
+                      {[
+                        { label: 'The Grinders', count: 1245, color: '#22c55e' },
+                        { label: 'The Socializers', count: 892, color: '#3b82f6' },
+                        { label: 'The Achievers', count: 678, color: '#a855f7' },
+                        { label: 'The Explorers', count: 456, color: '#f59e0b' },
+                        { label: 'At-Risk', count: 149, color: '#ef4444' },
+                      ].map((cluster) => (
+                        <div key={cluster.label} className="flex items-center justify-between">
+                          <span className="text-gray-400">{cluster.label}</span>
+                          <span className="font-bold" style={{ color: cluster.color }}>
+                            {formatNumber(cluster.count)}
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  <div className="rounded-lg border p-6">
-                    <h3 className="mb-4 font-semibold">Prediction Model (Random Forest)</h3>
+                  <div className="rounded-lg border border-white/10 p-6 bg-white/5">
+                    <h3 className="mb-4 font-semibold text-white">Prediction Model (Random Forest)</h3>
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span>Model Accuracy</span>
-                        <span className="font-bold text-green-500">94.2%</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Precision</span>
-                        <span className="font-bold">91.8%</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Recall</span>
-                        <span className="font-bold">89.5%</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>F1 Score</span>
-                        <span className="font-bold">90.6%</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Last Trained</span>
-                        <span className="text-muted-foreground">2 hours ago</span>
-                      </div>
+                      {[
+                        { label: 'Model Accuracy', value: '94.2%', color: '#22c55e' },
+                        { label: 'Precision', value: '91.8%', color: '#3b82f6' },
+                        { label: 'Recall', value: '89.5%', color: '#a855f7' },
+                        { label: 'F1 Score', value: '90.6%', color: '#f59e0b' },
+                      ].map((metric) => (
+                        <div key={metric.label} className="flex items-center justify-between">
+                          <span className="text-gray-400">{metric.label}</span>
+                          <span className="font-bold" style={{ color: metric.color }}>
+                            {metric.value}
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
-
-          {user.role === 'game_master' && (
-            <TabsContent value="settings">
-              <Card>
-                <CardHeader>
-                  <CardTitle>System Settings</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">
-                    System configuration options for Game Masters.
-                  </p>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          )}
         </Tabs>
       </main>
 
       <Footer />
+
+      {/* Quest Creation Modal */}
+      <QuestForm
+        open={showQuestForm}
+        onOpenChange={setShowQuestForm}
+        onSuccess={() => {
+          // Refresh quests
+          window.location.reload()
+        }}
+      />
     </div>
   )
 }
-
-
-
-
-
-

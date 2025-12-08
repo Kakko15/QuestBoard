@@ -212,23 +212,24 @@ export function RegisterForm() {
     >
       <Link 
         href="/" 
-        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-white mb-4 transition-colors"
+        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to Home
       </Link>
-      <Card className="w-full border-2 border-amber-500/20">
+      <Card className="w-full border-2 border-neon-purple/20 glass-card">
         <CardHeader className="text-center">
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.2, type: 'spring' }}
-            className="mx-auto mb-4 relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-orange-600 text-3xl shadow-lg overflow-hidden"
+            className="mx-auto mb-4 relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-neon-purple to-neon-green text-3xl shadow-lg shadow-neon-purple/20 overflow-hidden"
           >
             <Image 
               src="/logo-symbol-only.png" 
               alt="QuestBoard Logo" 
               fill
+              sizes="64px"
               className="object-cover p-2"
             />
           </motion.div>
@@ -440,7 +441,7 @@ export function RegisterForm() {
             Already have an account?{' '}
             <Link
               href="/auth/login"
-              className="font-medium text-amber-500 hover:underline"
+              className="font-medium text-neon-green hover:underline"
             >
               Sign in
             </Link>

@@ -126,6 +126,18 @@ export async function POST(
         })
 
         await redis.del(CACHE_KEYS.GUILD_LEADERBOARD)
+
+        // Check for new achievements
+        try {
+          await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/achievements/check`, {
+            method: 'POST',
+            headers: {
+              'Cookie': request.headers.get('cookie') || '',
+            },
+          })
+        } catch (achievementError) {
+          console.error('Achievement check failed:', achievementError)
+        }
       }
     }
 

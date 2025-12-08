@@ -51,11 +51,11 @@ const config: Config = {
           foreground: 'hsl(var(--card-foreground))',
         },
         neon: {
-          green: '#00FF94',
-          orange: '#FF5C00',
-          purple: '#5865F2', // Discord-like blurple
-          pink: '#FF00FF',
-          blue: '#00FFFF',
+          green: 'var(--neon-green)',
+          orange: 'var(--neon-orange)',
+          purple: 'var(--neon-purple)',
+          pink: 'var(--neon-pink)',
+          blue: 'var(--neon-blue)',
         },
         guild: {
           technomancers: '#FF5C00',
