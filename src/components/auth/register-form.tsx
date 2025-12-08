@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { motion } from 'framer-motion'
 import ReCAPTCHA from 'react-google-recaptcha'
 import { Mail, Lock, User, Hash, Loader2, Sparkles, ArrowLeft } from 'lucide-react'
@@ -222,9 +223,14 @@ export function RegisterForm() {
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.2, type: 'spring' }}
-            className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-orange-600 text-3xl shadow-lg"
+            className="mx-auto mb-4 relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-orange-600 text-3xl shadow-lg overflow-hidden"
           >
-            🛡️
+            <Image 
+              src="/logo-symbol-only.png" 
+              alt="QuestBoard Logo" 
+              fill
+              className="object-cover p-2"
+            />
           </motion.div>
           <CardTitle className="font-display text-2xl">
             Join QuestBoard

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronRight, Sparkles, Users, Target, Trophy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -14,7 +15,16 @@ const slides = [
     title: 'Welcome to QuestBoard',
     subtitle: 'Your Campus Adventure Begins',
     description: 'Transform your university experience into an epic RPG journey at ISU-Echague Campus.',
-    icon: '⚔️',
+    icon: (
+      <div className="relative h-20 w-20 overflow-hidden rounded-xl">
+        <Image 
+          src="/logo-symbol-only.png" 
+          alt="QuestBoard Logo" 
+          fill
+          className="object-cover p-2"
+        />
+      </div>
+    ),
     color: 'from-amber-500 to-orange-600',
   },
   {

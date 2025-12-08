@@ -1,6 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import Image from 'next/image'
 
 export function LoadingScreen() {
   return (
@@ -15,9 +16,14 @@ export function LoadingScreen() {
           initial={{ scale: 0, rotate: -180 }}
           animate={{ scale: 1, rotate: 0 }}
           transition={{ duration: 0.8, type: 'spring' }}
-          className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 text-5xl shadow-2xl shadow-amber-500/30"
+          className="mx-auto mb-6 relative flex h-24 w-24 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 text-5xl shadow-2xl shadow-amber-500/30 overflow-hidden"
         >
-          ⚔️
+          <Image 
+            src="/logo-symbol-only.png" 
+            alt="QuestBoard Logo" 
+            fill
+            className="object-cover p-3"
+          />
         </motion.div>
 
         <motion.h1

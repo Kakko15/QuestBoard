@@ -62,7 +62,7 @@ export function GuildBadge({
             {guild.guildName}
           </span>
           <span className="text-xs text-muted-foreground">
-            {guild.officialName}
+            {guild.acronym}
           </span>
         </div>
       )}

@@ -240,7 +240,7 @@ export default function LeaderboardPage() {
                             )}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            {guildInfo.officialName}
+                            {guildInfo.acronym}
                           </div>
                         </div>
 

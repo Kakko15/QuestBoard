@@ -4,6 +4,33 @@
 
 @layer base {
   :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 5.9% 10%;
+    --radius: 1rem;
+    
+    /* Light mode custom colors */
+    --neon-green: #00A65F; /* Darker green for visibility on white */
+    --neon-purple: #4D55D8; /* Darker purple */
+  }
+
+  .dark {
     --background: 240 10% 3.9%;
     --foreground: 0 0% 98%;
     --card: 240 10% 3.9%;
@@ -23,7 +50,10 @@
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
     --ring: 240 4.9% 83.9%;
-    --radius: 0.5rem;
+
+    /* Dark mode neon colors */
+    --neon-green: #00FF94;
+    --neon-purple: #5865F2;
   }
 }
 
@@ -32,74 +62,88 @@
     @apply border-border;
   }
   body {
-    @apply bg-black text-foreground font-body;
-    background-image: 
-      radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px),
-      radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-    background-size: 32px 32px, 16px 16px;
-    background-position: 0 0, 16px 16px;
+    @apply bg-background text-foreground font-body transition-colors duration-300;
   }
 }
 
 @layer utilities {
   .text-shadow-neon {
-    text-shadow: 0 0 10px currentColor;
+    text-shadow: 0 0 20px currentColor;
   }
-  .box-shadow-neon {
-    box-shadow: 0 0 10px currentColor, 0 0 20px currentColor;
-  }
+  
   .glass-card {
-    @apply bg-black/40 backdrop-blur-xl border border-white/10;
+    @apply bg-background/60 backdrop-blur-2xl border border-border/50 shadow-xl shadow-black/5 dark:shadow-black/20;
   }
-  .pixel-corners {
-    clip-path: polygon(
-      0 4px, 4px 4px, 4px 0,
-      calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px,
-      100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%,
-      4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px)
-    );
-  }
+
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
-}
 
-/* Add bottom padding for mobile nav on small screens */
-@media (max-width: 767px) {
-  main, .main-content {
-    padding-bottom: 80px;
+  /* Animated Background */
+  .animated-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(circle at 50% 50%, rgba(var(--primary-rgb), 0.05) 0%, transparent 50%);
+  }
+
+  .animated-blob {
+    position: absolute;
+    filter: blur(80px);
+    z-index: -1;
+    opacity: 0.4;
+    animation: blob-bounce 20s infinite ease-in-out;
+  }
+  
+  .blob-1 {
+    top: -10%;
+    left: -10%;
+    width: 50vw;
+    height: 50vw;
+    background: var(--neon-purple);
+    animation-delay: 0s;
+  }
+  
+  .blob-2 {
+    bottom: -10%;
+    right: -10%;
+    width: 50vw;
+    height: 50vw;
+    background: var(--neon-green);
+    animation-delay: 2s;
+  }
+  
+  .blob-3 {
+    top: 40%;
+    left: 40%;
+    width: 40vw;
+    height: 40vw;
+    background: #ff5c00;
+    animation-delay: 4s;
+    opacity: 0.2;
   }
 }
 
+@keyframes blob-bounce {
+  0% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -50px) scale(1.1); }
+  66% { transform: translate(-20px, 20px) scale(0.9); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #000;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #333;
-  border: 2px solid #000;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #555;
-}
-
-.scanline {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: linear-gradient(
-    to bottom,
-    transparent 50%,
-    rgba(0, 0, 0, 0.1) 51%
-  );
-  background-size: 100% 4px;
-  pointer-events: none;
-  z-index: 9999;
+  @apply bg-muted-foreground/30 hover:bg-muted-foreground/50 rounded-full border-2 border-transparent bg-clip-content;
 }
