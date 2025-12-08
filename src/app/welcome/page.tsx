@@ -21,7 +21,7 @@ const slides = [
           src="/logo-symbol-only.png" 
           alt="QuestBoard Logo" 
           fill
-          sizes="80px"
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           className="object-cover p-2"
         />
       </div>
@@ -73,7 +73,7 @@ export default function WelcomePage() {
 
   const handleContinue = () => {
     localStorage.setItem('questboard_welcomed', 'true')
-    router.replace('/') // Use replace to not pollute browser history
+    router.replace('/quests') // Go to quests page directly
   }
 
   const slide = slides[currentSlide]
